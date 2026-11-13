@@ -1,0 +1,6 @@
+indicator,latest,prior,unit,period,prior_period,higher_is_worse,source,note
+Home values (12-month change),-2.8,0.0,%,Oct 2026,Sep 2026,false,Cotality HVI,6.7% below March 2026 peak
+Owner-occupiers in cash-flow shortfall,2.0,1.0,% (approx.),Oct 2026 FSR,End 2025,true,RBA Financial Stability Review,RBA wording: around 2% vs a little over 1%
+Company insolvencies (financial year),14152,14722,companies,FY2025-26,FY2024-25,true,ASIC Series 1,FY2025-26 provisional
+Prime RMBS arrears 30+ days,0.85,,%,Jun 2026,,true,S&P Global Ratings,
+Non-conforming RMBS arrears 30+ days,3.42,,%,Jun 2026,,true,S&P Global Ratings,

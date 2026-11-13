@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: au-credit-macro-dashboard
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:server --workers 2 --timeout 120 --bind 0.0.0.0:$PORT
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: LIVE_DATA
+        value: "1"
+      - key: CACHE_TTL_SECONDS
+        value: "21600"

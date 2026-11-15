@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from .agencies import AGENCY_KEYS
 from .rba import fetch_table, select_series
 from .specs import LIVE_SERIES, SPEC_BY_KEY
 
@@ -111,6 +112,11 @@ def build(use_live: bool | None = None) -> DashboardData:
             data.origin[spec.key] = "snapshot"
         if use_live and spec.key in errors:
             log.warning("Live fetch failed for %s: %s", spec.key, errors[spec.key])
+    for key in AGENCY_KEYS:  # refreshed daily by the GitHub Action, read from snapshot
+        snap = load_snapshot(key)
+        if snap is not None and not snap.empty:
+            data.series[key] = snap
+            data.origin[key] = "daily"
     data.home_values, data.stress = load_manual()
     data.loaded_at = pd.Timestamp.now(tz="Australia/Sydney")
     return data

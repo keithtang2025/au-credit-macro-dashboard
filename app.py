@@ -78,6 +78,12 @@ def status_table(d) -> html.Table:
             html.Td(_when(s) if s is not None else "n/a"),
             html.Td(origin, className=f"badge {origin}"),
         ]))
+    for key, label, src in (("apra_housing_npl", "Housing loans non-performing", "APRA property exposures (xlsx)"),
+                            ("asic_insolvencies", "Company insolvencies, monthly", "ASIC Series 1 (xlsx)")):
+        s = d.series.get(key)
+        origin = d.origin.get(key, "missing")
+        rows.append(html.Tr([html.Td(label), html.Td(src), html.Td(_when(s) if s is not None else "n/a"),
+                             html.Td(origin, className=f"badge {origin}")]))
     return html.Table(className="status", children=[
         html.Thead(html.Tr([html.Th("Series"), html.Th("Table (ID)"), html.Th("Latest obs."), html.Th("Data")])),
         html.Tbody(rows),
@@ -130,14 +136,19 @@ def serve_layout():
             chart_card("Real GDP growth", "Year-ended, %. Table H1 (ABS National Accounts).", charts.gdp(s.get("gdp_yoy")), "c-gdp"),
             chart_card("Home values", "Cotality national HVI, monthly change %. Red bars are declines. Updated manually.",
                        charts.home_values(hv), "c-home"),
+            chart_card("Housing loans non-performing", "Share of ADI housing credit outstanding, %. APRA quarterly property exposures, refreshed daily.",
+                       charts.housing_npl(s.get("apra_housing_npl")), "c-npl"),
+            chart_card("Company insolvencies", "Companies entering external administration (ASIC Series 1): monthly and rolling 12-month total.",
+                       charts.insolvencies(s.get("asic_insolvencies"), s.get("asic_insolvencies_12m")), "c-insolv"),
             chart_card("Household debt to income", "Ratio of household debt to annualised disposable income, %. Table E2.",
                        charts.debt_to_income(s.get("household_dti")), "c-dti"),
         ]),
         html.Details(className="card", children=[
             html.Summary("Data sources and status"),
             status_table(d),
-            html.P("Manual series (data/manual): Cotality Home Value Index; RBA Financial Stability Review "
-                   "(cash-flow shortfall); ASIC insolvency statistics; S&P Global Ratings RMBS Performance Watch.",
+            html.P("'live' = fetched from the RBA when the page loads; 'daily' = refreshed each morning by the "
+                   "GitHub Action (APRA, ASIC); 'snapshot' = last saved copy. Manual series (data/manual): Cotality "
+                   "Home Value Index and the RBA Financial Stability Review cash-flow shortfall estimate.",
                    className="muted small"),
         ]),
         html.Footer("Built with Plotly Dash. Data: Reserve Bank of Australia, Australian Bureau of Statistics, "

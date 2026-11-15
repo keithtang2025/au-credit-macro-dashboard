@@ -54,6 +54,11 @@ def prior_point(s: pd.Series, months: int = 12) -> tuple[pd.Timestamp, float] | 
     return earlier.index[-1], float(earlier.iloc[-1])
 
 
+def _source_label(key: str, origin: str | None) -> str:
+    base = "APRA" if key.startswith("apra") else "ASIC" if key.startswith("asic") else "RBA"
+    return base + (" (snapshot)" if origin == "snapshot" else "")
+
+
 def series_rows(series: dict[str, pd.Series], origin: dict[str, str]) -> list[dict]:
     rows = []
     for item in SCORE_ITEMS:
@@ -71,16 +76,21 @@ def series_rows(series: dict[str, pd.Series], origin: dict[str, str]) -> list[di
                 "Prior": round(pp[1], 2) if pp else None,
                 "Prior period": period_label(pp[0], freq) if pp else "",
                 "Signal": signal(latest_v, pp[1] if pp else None, item.higher_is_worse),
-                "Source": "RBA" + (" (snapshot)" if origin.get(item.key) == "snapshot" else ""),
+                "Source": _source_label(item.key, origin.get(item.key)),
                 "Note": item.note,
             }
         )
     return rows
 
 
-def manual_rows(stress: pd.DataFrame) -> list[dict]:
+def manual_rows(stress: pd.DataFrame, automated: set[str] | None = None) -> list[dict]:
+    """Manual indicators; a row whose replaced_by series is automated is skipped."""
     rows = []
+    automated = automated or set()
     for r in stress.itertuples(index=False):
+        repl = getattr(r, "replaced_by", None)
+        if isinstance(repl, str) and repl.strip() in automated:
+            continue
         prior = None if pd.isna(r.prior) else float(r.prior)
         hiw = str(r.higher_is_worse).strip().lower() in ("true", "1", "yes")
         rows.append(
@@ -99,7 +109,8 @@ def manual_rows(stress: pd.DataFrame) -> list[dict]:
 
 
 def build_scorecard(series, origin, stress) -> pd.DataFrame:
-    return pd.DataFrame(series_rows(series, origin) + manual_rows(stress))
+    automated = {k for k, s in series.items() if s is not None and not s.empty}
+    return pd.DataFrame(series_rows(series, origin) + manual_rows(stress, automated))
 
 
 def summary(score: pd.DataFrame) -> tuple[int, int]:

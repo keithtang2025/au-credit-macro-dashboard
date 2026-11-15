@@ -4,19 +4,24 @@ A Plotly Dash app tracking the macro drivers of Australian credit risk: the RBA 
 
 **Live data:** RBA statistical tables (F1.1, D1, E2), plus the ABS labour force, CPI and national accounts series the RBA republishes (H5, G1, H1). The app fetches them on page load (cached for 6 hours). If the RBA site is unreachable, it falls back to the snapshot in `data/snapshot/`, and a GitHub Action refreshes that snapshot daily.
 
-**Manual data:** Cotality home values, RBA cash-flow shortfall estimates, ASIC insolvencies and S&P RMBS arrears have no free API. Update the CSVs in `data/manual/` when new releases come out.
+**Automated agency data:** each morning the GitHub Action also finds and downloads the latest APRA *Quarterly ADI property exposures* workbook (housing loans non-performing, % of credit outstanding) and ASIC *Insolvency statistics Series 1 and 2* workbook (companies entering external administration, monthly and rolling 12 months). Workbook URLs change every release, so the script reads the link from each publication page and locates series by their labels, not fixed cells. What it found is written to `data/debug/source_report.md` on every run.
+
+**Manual data (no free feed):** Cotality home values and the RBA Financial Stability Review cash-flow shortfall estimate. Update `data/manual/` when new releases come out. Manual rows with a `replaced_by` value are hidden once that automated series is available.
 
 ## Project layout
 
 ```
 app.py                      Dash app (layout, KPI cards, scorecard, charts)
 src/rba.py                  RBA CSV downloader and parser
+src/agencies.py             APRA and ASIC workbook discovery and parsing
+src/xlsx_scan.py            Label-based series finder for Excel workbooks
 src/specs.py                Series to fetch (table, series ID, title fallback) and scorecard rules
 src/data.py                 Live fetch -> snapshot fallback, 6-hour cache
 src/scorecard.py            Risk signal logic (latest vs ~12 months earlier)
 src/charts.py               Plotly figures
 data/snapshot/*.csv         Fallback copies of live series (auto-refreshed)
 data/manual/*.csv           Hand-maintained series
+data/debug/source_report.md What the last refresh found in the APRA/ASIC workbooks
 data/history/*.csv          Append-only archive of values, revisions and refresh runs
 src/history.py              Archive writer and point-in-time helpers (as_of, revisions)
 scripts/refresh_snapshot.py Used by the scheduled GitHub Action
@@ -48,7 +53,7 @@ For each series, the latest observation is compared with the one about 12 months
 
 ## Daily updates and data history
 
-A GitHub Action (`.github/workflows/refresh-data.yml`) runs every day at 9:17am Sydney time (22:17 UTC). It fetches the RBA/ABS series, updates `data/snapshot/`, archives the data in `data/history/` and commits. Render redeploys on each commit. You can also run it any time from **Actions > Refresh data snapshot > Run workflow**.
+A GitHub Action (`.github/workflows/refresh-data.yml`) runs every day at 9:17am Sydney time (22:17 UTC). It fetches the RBA/ABS series and the APRA and ASIC workbooks, updates `data/snapshot/`, archives the data in `data/history/` and commits. Render redeploys on each commit. You can also run it any time from **Actions > Refresh data snapshot > Run workflow**.
 
 The archive is append-only:
 

@@ -121,3 +121,29 @@ def debt_to_income(s: pd.Series | None) -> go.Figure:
                                name="Debt to income", hovertemplate="%{y:.1f}%<extra></extra>"))
     _last_label(fig, s, BLUE, "{:.0f}%")
     return _base(fig)
+
+
+def housing_npl(s: pd.Series | None) -> go.Figure:
+    if s is None or s.empty:
+        return empty("Loads from APRA after the next daily refresh")
+    s = s[s.index >= s.index[-1] - pd.DateOffset(years=8)]
+    fig = go.Figure(go.Scatter(x=s.index, y=s.values, mode="lines+markers", line=dict(color=RED, width=2),
+                               marker=dict(size=4), name="Non-performing", hovertemplate="%{y:.2f}%<extra></extra>"))
+    _last_label(fig, s, RED)
+    return _base(fig)
+
+
+def insolvencies(monthly: pd.Series | None, r12: pd.Series | None) -> go.Figure:
+    if monthly is None or monthly.empty:
+        return empty("Loads from ASIC after the next daily refresh")
+    m = monthly[monthly.index >= monthly.index[-1] - pd.DateOffset(years=5)]
+    fig = go.Figure(go.Bar(x=m.index, y=m.values, name="Monthly", marker_color=GREY,
+                           hovertemplate="%{x|%b %Y}: %{y:,.0f}<extra></extra>"))
+    if r12 is not None and not r12.empty:
+        r = r12[r12.index >= m.index[0]]
+        fig.add_trace(go.Scatter(x=r.index, y=r.values, name="Rolling 12 months (right)", yaxis="y2",
+                                 line=dict(color=ORANGE, width=2.5), hovertemplate="%{y:,.0f}<extra></extra>"))
+        fig.update_layout(yaxis2=dict(overlaying="y", side="right", showgrid=False, tickformat=",.0f"))
+    fig = _base(fig, ysuffix="")
+    fig.update_yaxes(tickformat=",.0f")
+    return fig

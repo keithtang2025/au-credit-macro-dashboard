@@ -17,6 +17,7 @@ details { margin-top: 16px; }
 .status th, .status td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e5e7eb; }
 .badge.live { color: #15803d; font-weight: 600; }
 .badge.snapshot { color: #b45309; font-weight: 600; }
+.badge.daily { color: #2563eb; font-weight: 600; }
 .badge.missing { color: #dc2626; font-weight: 600; }
 footer { margin-top: 20px; }
 @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } h1 { font-size: 24px; } }

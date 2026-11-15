@@ -12,6 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.data import fetch_live, save_snapshot  # noqa: E402
+from src.history import record  # noqa: E402
 from src.specs import SPEC_BY_KEY  # noqa: E402
 
 
@@ -21,6 +22,8 @@ def main() -> int:
         print(f"updated {path.name}")
     for key, err in errors.items():
         print(f"FAILED {key}: {err}", file=sys.stderr)
+    counts = record(series, errors)
+    print(f"history: {counts['new']} new values, {counts['revised']} revisions archived")
     print(f"{len(series)} of {len(SPEC_BY_KEY)} series refreshed")
     return 0 if series else 1
 

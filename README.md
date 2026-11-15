@@ -17,6 +17,8 @@ src/scorecard.py            Risk signal logic (latest vs ~12 months earlier)
 src/charts.py               Plotly figures
 data/snapshot/*.csv         Fallback copies of live series (auto-refreshed)
 data/manual/*.csv           Hand-maintained series
+data/history/*.csv          Append-only archive of values, revisions and refresh runs
+src/history.py              Archive writer and point-in-time helpers (as_of, revisions)
 scripts/refresh_snapshot.py Used by the scheduled GitHub Action
 .github/workflows/          CI tests + daily data refresh
 render.yaml                 Render blueprint
@@ -43,6 +45,25 @@ The free plan sleeps after inactivity, so the first visit after a while takes ab
 ## Scorecard method
 
 For each series, the latest observation is compared with the one about 12 months earlier (within 45 days), or the previous observation if history is shorter. The signal is **Risk rising** when the move worsens borrower credit quality: a higher cash rate, unemployment, inflation, leverage, stress or insolvencies, or lower GDP growth or home values. Faster business credit growth is treated as rising risk (faster leverage build-up).
+
+## Daily updates and data history
+
+A GitHub Action (`.github/workflows/refresh-data.yml`) runs every day at 9:17am Sydney time (22:17 UTC). It fetches the RBA/ABS series, updates `data/snapshot/`, archives the data in `data/history/` and commits. Render redeploys on each commit. You can also run it any time from **Actions > Refresh data snapshot > Run workflow**.
+
+The archive is append-only:
+
+- `data/history/vintages.csv`: one row the first time each value is seen (`new`) and again whenever the RBA/ABS revises it (`revised`), stamped with the retrieval date.
+- `data/history/refresh_log.csv`: one row per series per run (`ok`/`failed`, latest period and value), an audit trail of the feed.
+
+Point-in-time views for analysis:
+
+```python
+from src.history import as_of, revisions
+as_of("unemployment", "2026-12-31")   # series as it looked on that date
+revisions("gdp_yoy")                  # every revision: old value, new value, date seen
+```
+
+Note: GitHub pauses scheduled workflows in a repo with no activity for 60 days. The daily data commits normally count as activity, but if the workflow ever shows as disabled, re-enable it on the Actions tab.
 
 ## Configuration
 

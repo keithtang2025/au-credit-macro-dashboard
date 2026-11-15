@@ -33,7 +33,7 @@ LIVE_SERIES: list[SeriesSpec] = [
         "Business credit growth",
     ),
     SeriesSpec("credit_personal", "d1", "DGFACOPF12", r"credit; other personal; 12-month", "Personal credit growth"),
-    SeriesSpec("credit_total", "d1", "DGFACP12", r"credit; total; 12-month", "Total credit growth"),
+    SeriesSpec("credit_total", "d1", "DGFACP12", r"credit; total.*12-month", "Total credit growth"),
     SeriesSpec(
         "household_dti",
         "e2",

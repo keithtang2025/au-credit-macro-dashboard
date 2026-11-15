@@ -105,3 +105,26 @@ def test_daily_series_to_month_end_includes_current_month():
     s = select_series(t, SeriesSpec("cash_rate", "f1", "FIRMMCRTD", r"^cash rate", "x", to_month_end=True))
     assert s.iloc[-1] == pytest.approx(4.85)
     assert s.index[-1] == pd.Timestamp("2026-11-30")
+
+
+def test_history_records_new_and_revised(tmp_path, monkeypatch):
+    from src import history
+
+    monkeypatch.setattr(history, "HISTORY_DIR", tmp_path)
+    monkeypatch.setattr(history, "VINTAGES", tmp_path / "vintages.csv")
+    monkeypatch.setattr(history, "REFRESH_LOG", tmp_path / "refresh_log.csv")
+    idx = pd.to_datetime(["2026-07-31", "2026-08-31"])
+    c1 = history.record({"u": pd.Series([4.5, 4.6], index=idx)}, {}, pd.Timestamp("2026-09-15"))
+    assert c1 == {"new": 2, "revised": 0}
+    # same data again: nothing new; then a revision plus a new month
+    assert history.record({"u": pd.Series([4.5, 4.6], index=idx)}, {}, pd.Timestamp("2026-09-16")) == {"new": 0, "revised": 0}
+    idx2 = pd.to_datetime(["2026-07-31", "2026-08-31", "2026-09-30"])
+    c3 = history.record({"u": pd.Series([4.5, 4.7, 4.7], index=idx2)}, {"x": "boom"}, pd.Timestamp("2026-10-16"))
+    assert c3 == {"new": 1, "revised": 1}
+    # point-in-time view before the revision still shows the first print
+    assert history.as_of("u", "2026-09-30").loc["2026-08-31"] == pytest.approx(4.6)
+    assert history.as_of("u", "2026-10-31").loc["2026-08-31"] == pytest.approx(4.7)
+    rev = history.revisions("u")
+    assert len(rev) == 1 and rev.iloc[0]["previous"] == pytest.approx(4.6)
+    log = pd.read_csv(tmp_path / "refresh_log.csv")
+    assert set(log["status"]) == {"ok", "failed"} and len(log) == 4

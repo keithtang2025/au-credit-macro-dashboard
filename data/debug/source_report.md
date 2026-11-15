@@ -3,7 +3,8 @@
 ## APRA property exposures
 Workbook: https://www.apra.gov.au/system/files/2026-09/Quarterly%20authorised%20deposit-taking%20institution%20property%20exposures%20statistics%20June%202026.xlsx
 Sheets: Cover , Notes, Contents, Tab 1a, Tab 1b, Tab 1c, Tab 2a, Tab 2b, Tab 2c, Tab 3a, Tab 3b, Tab 3c, Tab 4a, Tab 4b, Tab 4c, Tab 5a, Tab 5b, Tab 5c, Tab 6a, Tab 6b, Tab 6c, Tab 7a, Tab 7b, Tab 7c, Tab 8, Revisions, Explanatory notes
-apra_housing_npl: 'Non-performing loans' / 'Total credit limits (including redrawable amounts)' x100 in sheet 'Tab 1b' (across); 30 obs, latest 2026-06 = 0.900
+apra_housing_npl: 'Non-performing loans' / 'Total credit oustanding' x100 in sheet 'Tab 1b' (across); 30 obs, latest 2026-06 = 1.011
+apra_housing_pastdue: 'Loans 30-89 days past due' / 'Total credit oustanding' x100 in sheet 'Tab 1b' (across); 30 obs, latest 2026-06 = 0.535
 
 ### Sheet `Tab 1b` (95 rows read, 32 cols)
 - r0: Table 1b  ADIs' residential 

@@ -145,11 +145,11 @@ def describe(sheets: dict[str, list[list]], keywords: str, max_lines: int = 40) 
         lines.append(f"### Sheet `{name}` ({len(rows)} rows read, {width} cols)")
         shown = 0
         for r, row in enumerate(rows):
-            cells = [str(v)[:28] for v in row[:8] if v not in (None, "")]
+            cells = [str(v)[:28] for v in row[:14] if v not in (None, "")]
             if not cells:
                 continue
-            if r < 8 or any(kw.search(str(v)) for v in row[:6] if isinstance(v, str)):
-                tail = [str(v)[:12] for v in row[-3:] if v not in (None, "")] if len(row) > 8 else []
+            if r < 12 or any(kw.search(str(v)) for v in row[:6] if isinstance(v, str)):
+                tail = [str(v)[:12] for v in row[-3:] if v not in (None, "")] if len(row) > 14 else []
                 lines.append(f"- r{r}: " + " | ".join(cells) + (f" ... {' | '.join(tail)}" if tail else ""))
                 shown += 1
             if shown >= max_lines:

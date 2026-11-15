@@ -90,3 +90,32 @@ def test_manual_rows_replaced_when_automated():
 def test_find_series_requires_min_points():
     sheets = {"s": [["x", *QTRS[:2], "Jun 2026", "Sep 2026"], ["Total", 1, None, None, None]]}
     assert find_series(sheets, r"^total$") == []
+
+
+def test_asic_table1_months_by_financial_year():
+    months = ["July", "August", "September", "October", "November", "December",
+              "January", "February", "March", "April", "May", "June"]
+    rows = [["Australian insolvency statistics"], ["Released:", datetime(2026, 11, 9)],
+            ["Data to:", datetime(2026, 10, 25)], [],
+            ["Month", "FY24", "FY25", "FY26", "FY27"], ["", "No.", "No.", "No.", "No."]]
+    for i, m in enumerate(months):
+        fy27 = [1500, 1600, 1550, 900][i] if i < 4 else None
+        rows.append([m, 900 + i, 1200 + i, 1100 + i, fy27])
+    rows.append(["Total", 1, 2, 3, 4])
+    sheets = load_sheets(_book({"Contents": [["x"]], "1": rows, "2": [["Month", "FY24", "FY25", "FY26"]]}))
+    s, how = asic_from_sheets(sheets)
+    assert s.index[0] == pd.Timestamp("2023-07-31") and s.loc["2024-01-31"] == 906
+    assert s.loc["2026-06-30"] == 1111 and s.loc["2025-07-31"] == 1100
+    # October 2026 is only reported to the 25th, so it is dropped
+    assert s.index[-1] == pd.Timestamp("2026-09-30") and s.iloc[-1] == 1550
+    assert "partial month" in how
+    assert rolling_12m(s).loc["2026-06-30"] == sum(1100 + i for i in range(12))
+
+
+def test_apra_prefers_outstanding_over_limits():
+    rows = [["Tab 1b"], ["$ million", *QTRS],
+            ["Total credit limits (including redrawable amounts)", 3000.0, 3000.0, 3000.0, 3000.0, 3000.0],
+            ["Total credit outstanding", 2000.0, 2000.0, 2000.0, 2000.0, 2000.0],
+            ["Non-performing loans", 16.0, 17.0, 18.0, 19.0, 20.0]]
+    s, how = apra_npl_from_sheets(load_sheets(_book({"Tab 1b": rows})))
+    assert s.iloc[-1] == pytest.approx(1.0) and "outstanding" in how

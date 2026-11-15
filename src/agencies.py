@@ -70,10 +70,12 @@ def apra_npl_from_sheets(sheets: dict) -> tuple[pd.Series, str]:
     if best is not None:
         return best.series, f"ratio row '{best.label}' in sheet '{best.sheet}' ({best.orientation})"
     nums = [m for m in find_series(sheets, r"^\s*non[- ]?performing") if "commercial" not in m.label.lower()]
-    dens = find_series(sheets, r"^\s*(total )?credit outstanding|^\s*total (housing )?credit")
+    dens = find_series(sheets, r"credit outstanding|outstanding|^\s*total (housing )?credit")
     for num in sorted(nums, key=lambda m: -len(m.series)):
         same = [d for d in dens if d.sheet == num.sheet and d.orientation == num.orientation]
-        den = _prefer_total(same)
+        # NPL share is defined on credit outstanding; limits (incl. redraw) only as a last resort
+        outstanding = [d for d in same if "outstanding" in d.label.lower() and "limit" not in d.label.lower()]
+        den = _prefer_total(outstanding or same)
         if den is None:
             continue
         share = (num.series / den.series * 100).dropna()
@@ -92,6 +94,9 @@ def fetch_apra() -> tuple[dict[str, pd.Series], str]:
         s, how = apra_npl_from_sheets(sheets)
         s.name = "apra_housing_npl"
         lines.append(f"apra_housing_npl: {how}; {len(s)} obs, latest {s.index[-1]:%Y-%m} = {s.iloc[-1]:.3f}")
+        sheet = re.search(r"in sheet '([^']+)'", how)
+        if sheet and sheet.group(1) in sheets:
+            lines += ["", describe({sheet.group(1): sheets[sheet.group(1)]}, r"perform|outstanding|limit|total|past due")]
         return {"apra_housing_npl": s}, "\n".join(lines)
     except LookupError as exc:
         lines += [f"FAILED: {exc}", "", describe(sheets, r"perform|past due|arrear|outstanding|total")]
@@ -100,7 +105,78 @@ def fetch_apra() -> tuple[dict[str, pd.Series], str]:
 
 # ---------------- ASIC: companies entering external administration (Series 1)
 
+_FY = re.compile(r"^\s*FY\s?'?(\d{2}|\d{4})\s*$", re.I)
+_MONTH_NAMES = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+
+
+def asic_data_to(sheets: dict) -> pd.Timestamp | None:
+    """The 'Data to:' date ASIC prints near the top of the workbook."""
+    for rows in sheets.values():
+        for row in rows[:8]:
+            for i, v in enumerate(row[:-1]):
+                if isinstance(v, str) and v.strip().lower().startswith("data to"):
+                    nxt = next((x for x in row[i + 1:] if x not in (None, "")), None)
+                    try:
+                        return pd.Timestamp(nxt).normalize() if nxt is not None else None
+                    except (ValueError, TypeError):
+                        return None
+    return None
+
+
+def asic_table1(sheets: dict) -> pd.Series:
+    """Table 1 layout: month names down the rows, financial years (FY20, FY21...) across.
+
+    FY26 runs July 2025 to June 2026, so July-December belong to the earlier year.
+    """
+    for name, rows in sheets.items():
+        if name.strip() != "1" and not re.match(r"^\s*(table\s*)?1\s*$", name, re.I):
+            continue
+        for h, row in enumerate(rows):
+            fy_cols = {}
+            for c, v in enumerate(row):
+                m = _FY.match(v) if isinstance(v, str) else None
+                if m:
+                    y = int(m.group(1))
+                    fy_cols[c] = y + 2000 if y < 100 else y
+            if len(fy_cols) < 3:
+                continue
+            label_col = min(fy_cols) - 1
+            pts = {}
+            for r in range(h + 1, min(h + 40, len(rows))):
+                lab = rows[r][label_col] if label_col < len(rows[r]) else None
+                if not isinstance(lab, str):
+                    continue
+                key = lab.strip().lower()[:3]
+                if key == "tot":
+                    break
+                if key not in _MONTH_NAMES:
+                    continue
+                month = _MONTH_NAMES.index(key) + 1
+                for c, fy in fy_cols.items():
+                    v = rows[r][c] if c < len(rows[r]) else None
+                    if isinstance(v, (int, float)) and not isinstance(v, bool):
+                        year = fy - 1 if month >= 7 else fy
+                        pts[pd.Timestamp(year, month, 1) + pd.offsets.MonthEnd(0)] = float(v)
+            if len(pts) >= 12:
+                return pd.Series(pts, dtype=float).sort_index()
+    raise LookupError("ASIC: Table 1 (months x financial years) not found")
+
+
 def asic_from_sheets(sheets: dict) -> tuple[pd.Series, str]:
+    try:
+        s = asic_table1(sheets)
+        how = "Table 1 (sheet '1'): months x financial-year columns"
+        data_to = asic_data_to(sheets)
+        if data_to is not None:
+            month_end = data_to + pd.offsets.MonthEnd(0)
+            s = s[s.index <= month_end]
+            if data_to < month_end:  # current month only partly reported
+                s = s[s.index < month_end]
+                how += f"; partial month after data-to date {data_to:%Y-%m-%d} dropped"
+        if len(s) >= 12 and s.tail(12).between(50, 10000).all():
+            return s, how
+    except LookupError:
+        pass
     cands = []
     for m in find_series(sheets, r"^\s*(total|australia|total australia|grand total)\s*$", min_points=12):
         gaps = m.series.index.to_series().diff().dt.days.median()

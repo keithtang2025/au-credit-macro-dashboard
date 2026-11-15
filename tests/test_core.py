@@ -74,3 +74,34 @@ def test_snapshot_layout_builds():
 
     layout = app.serve_layout()
     assert layout is not None
+
+
+STALE = """Title,Credit; Total; 12-month ended growth,Credit; Total; 12-month ended growth
+Series ID,OLDID,NEWID
+30-Jun-2019,3.3,
+31-Jul-2026,,8.4
+31-Aug-2026,,8.4
+30-Sep-2026,,8.4
+"""
+
+
+def test_select_prefers_current_series_over_discontinued_id():
+    t = parse_rba_csv(STALE)
+    s = select_series(t, SeriesSpec("total", "d1", "OLDID", r"credit; total; 12-month", "x"))
+    assert s.index[-1] == pd.Timestamp("2026-09-30")
+
+
+DAILY = """Title,Cash Rate Target
+Series ID,FIRMMCRTD
+30-Oct-2026,4.60
+03-Nov-2026,4.60
+04-Nov-2026,4.85
+13-Nov-2026,4.85
+"""
+
+
+def test_daily_series_to_month_end_includes_current_month():
+    t = parse_rba_csv(DAILY)
+    s = select_series(t, SeriesSpec("cash_rate", "f1", "FIRMMCRTD", r"^cash rate", "x", to_month_end=True))
+    assert s.iloc[-1] == pytest.approx(4.85)
+    assert s.index[-1] == pd.Timestamp("2026-11-30")

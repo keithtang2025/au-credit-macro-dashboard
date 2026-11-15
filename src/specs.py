@@ -10,6 +10,9 @@ from .rba import SeriesSpec
 # parser covers RBA and ABS data. Series IDs are tried first; the title
 # pattern is the fallback if an ID changes.
 LIVE_SERIES: list[SeriesSpec] = [
+    # Daily table first so a decision shows in the current month; the
+    # monthly table (month-end values only) is the fallback.
+    SeriesSpec("cash_rate", "f1", "FIRMMCRTD", r"^cash rate target", "RBA cash rate target", to_month_end=True),
     SeriesSpec("cash_rate", "f1.1", "FIRMMCRT", r"^cash rate target", "RBA cash rate target"),
     SeriesSpec("unemployment", "h5", "GLFSURSA", r"^unemployment rate", "Unemployment rate (SA)"),
     SeriesSpec("cpi_yoy", "g1", "GCPIAGYP", r"^year-ended inflation$", "Headline CPI, year-ended"),
@@ -41,7 +44,9 @@ LIVE_SERIES: list[SeriesSpec] = [
     ),
 ]
 
-SPEC_BY_KEY = {s.key: s for s in LIVE_SERIES}
+SPEC_BY_KEY: dict[str, SeriesSpec] = {}
+for _s in LIVE_SERIES:  # first spec per key is the primary source
+    SPEC_BY_KEY.setdefault(_s.key, _s)
 
 
 @dataclass(frozen=True)

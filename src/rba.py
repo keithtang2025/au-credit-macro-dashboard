@@ -34,6 +34,7 @@ class SeriesSpec:
     title_pattern: str
     label: str
     unit: str = "%"
+    to_month_end: bool = False  # daily table: keep the last value in each month
 
 
 @dataclass
@@ -109,18 +110,34 @@ def fetch_table(table: str, timeout: float = 20.0) -> RbaTable:
 
 
 def select_series(table: RbaTable, spec: SeriesSpec) -> pd.Series:
-    """Return the requested series (NaNs dropped), by ID or by title fallback."""
+    """Return the requested series (NaNs dropped).
+
+    The series ID is used when it is still current. Otherwise every series
+    whose title matches title_pattern is a candidate, and the one with the
+    most recent observation wins, so a discontinued series is never picked
+    over its live replacement.
+    """
+    def last_date(col):
+        s = table.data[col].dropna()
+        return s.index[-1] if len(s) else pd.Timestamp.min
+
+    table_end = table.data.dropna(how="all").index.max()
     col = None
     if spec.series_id in table.data.columns:
-        col = spec.series_id
-    else:
+        if table_end - last_date(spec.series_id) <= pd.Timedelta(days=120):
+            col = spec.series_id
+    if col is None:
         pat = re.compile(spec.title_pattern, re.IGNORECASE)
-        for sid, title in table.titles.items():
-            if sid in table.data.columns and pat.search(title or ""):
-                col = sid
-                break
+        matches = [sid for sid, title in table.titles.items()
+                   if sid in table.data.columns and pat.search(title or "")]
+        if spec.series_id in table.data.columns:
+            matches.append(spec.series_id)
+        if matches:
+            col = max(matches, key=last_date)
     if col is None:
         raise KeyError(f"{spec.key}: series {spec.series_id} not found in RBA table {spec.table}")
     s = table.data[col].dropna()
+    if spec.to_month_end:
+        s = s.resample("ME").last().dropna()
     s.name = spec.key
     return s

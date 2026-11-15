@@ -12,7 +12,7 @@ from pathlib import Path
 import pandas as pd
 
 from .rba import fetch_table, select_series
-from .specs import LIVE_SERIES
+from .specs import LIVE_SERIES, SPEC_BY_KEY
 
 log = logging.getLogger(__name__)
 
@@ -38,26 +38,35 @@ def live_enabled() -> bool:
 
 
 def fetch_live() -> tuple[dict[str, pd.Series], dict[str, str]]:
-    """Fetch every live series, one download per RBA table."""
+    """Fetch every live series, one download per RBA table.
+
+    A key may have several specs (e.g. daily then monthly cash rate); the
+    first that succeeds wins and later tables are skipped if not needed.
+    """
     by_table = defaultdict(list)
     for spec in LIVE_SERIES:
         by_table[spec.table].append(spec)
     out: dict[str, pd.Series] = {}
     errors: dict[str, str] = {}
     for table, specs in by_table.items():
+        pending = [s for s in specs if s.key not in out]
+        if not pending:
+            continue
         try:
             tbl = fetch_table(table)
         except Exception as exc:  # network, HTTP or parse failure
-            for spec in specs:
-                errors[spec.key] = f"table {table}: {exc.__class__.__name__}: {exc}"
+            for spec in pending:
+                errors.setdefault(spec.key, f"table {table}: {exc.__class__.__name__}: {exc}")
             continue
-        for spec in specs:
+        for spec in pending:
+            if spec.key in out:
+                continue
             try:
                 s = select_series(tbl, spec)
                 out[spec.key] = s[s.index >= HISTORY_START]
             except KeyError as exc:
-                errors[spec.key] = str(exc)
-    return out, errors
+                errors.setdefault(spec.key, str(exc))
+    return out, {k: v for k, v in errors.items() if k not in out}
 
 
 def load_snapshot(key: str) -> pd.Series | None:
@@ -91,7 +100,7 @@ def build(use_live: bool | None = None) -> DashboardData:
     data = DashboardData()
     live, errors = fetch_live() if use_live else ({}, {})
     data.errors = errors
-    for spec in LIVE_SERIES:
+    for spec in SPEC_BY_KEY.values():
         if spec.key in live and not live[spec.key].empty:
             data.series[spec.key] = live[spec.key]
             data.origin[spec.key] = "live"

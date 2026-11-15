@@ -137,6 +137,19 @@ def housing_npl(s: pd.Series | None, pastdue: pd.Series | None = None) -> go.Fig
     return _base(fig)
 
 
+def _nice_step(raw: float) -> float:
+    """Smallest 'round' step (1, 2, 2.5, 5 x 10^k) at least raw."""
+    import math
+
+    if raw <= 0:
+        return 1.0
+    mag = 10 ** math.floor(math.log10(raw))
+    for f in (1, 2, 2.5, 5, 10):
+        if f * mag >= raw:
+            return f * mag
+    return 10 * mag
+
+
 def insolvencies(monthly: pd.Series | None, r12: pd.Series | None) -> go.Figure:
     if monthly is None or monthly.empty:
         return empty("Loads from ASIC after the next daily refresh")
@@ -147,7 +160,11 @@ def insolvencies(monthly: pd.Series | None, r12: pd.Series | None) -> go.Figure:
         r = r12[r12.index >= m.index[0]]
         fig.add_trace(go.Scatter(x=r.index, y=r.values, name="Rolling 12 months (right)", yaxis="y2",
                                  line=dict(color=ORANGE, width=2.5), hovertemplate="%{y:,.0f}<extra></extra>"))
-        fig.update_layout(yaxis2=dict(overlaying="y", side="right", showgrid=False, tickformat=",.0f"))
+        # both axes: 4 equal intervals with round steps, so gridlines line up
+        ls, rs = _nice_step(m.max() / 4), _nice_step(r.max() / 4)
+        fig.update_layout(yaxis2=dict(overlaying="y", side="right", showgrid=False, tickformat=",.0f",
+                                      range=[0, rs * 4.05], tick0=0, dtick=rs))
+        fig.update_layout(yaxis=dict(range=[0, ls * 4.05], tick0=0, dtick=ls))
     fig = _base(fig, ysuffix="")
     fig.update_yaxes(tickformat=",.0f")
     return fig

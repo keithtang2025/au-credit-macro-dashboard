@@ -29,6 +29,13 @@ scripts/refresh_snapshot.py Used by the scheduled GitHub Action
 render.yaml                 Render blueprint
 ```
 
+
+## Static edition (GitHub Pages)
+
+A server-free copy of the dashboard is published to GitHub Pages after every daily refresh, so it never sleeps the way Render's free plan does. `scripts/build_static.py` fetches the RBA tables, renders the same KPIs, scorecard and charts (from `src/page.py`, shared with the Dash app) into a single `site/index.html`, and `.github/workflows/pages.yml` deploys it.
+
+One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**. The page then lives at `https://<your-user>.github.io/<repo-name>/`. To build it locally: `python scripts/build_static.py` and open `site/index.html`.
+
 ## Run locally
 
 ```bash

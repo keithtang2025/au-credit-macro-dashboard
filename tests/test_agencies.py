@@ -119,3 +119,19 @@ def test_apra_prefers_outstanding_over_limits():
             ["Non-performing loans", 16.0, 17.0, 18.0, 19.0, 20.0]]
     s, how = apra_npl_from_sheets(load_sheets(_book({"Tab 1b": rows})))
     assert s.iloc[-1] == pytest.approx(1.0) and "outstanding" in how
+
+
+def test_apra_real_tab1b_labels_with_typo():
+    rows = [["Table 1b  ADIs' residential property exposures"], ["($ million, Level 2)"],
+            ["Loans to households and self-managed super funds", "Quarter end"], ["", *QTRS], [],
+            ["Credit limits"], ["Total credit limits (including redrawable amounts)", *[3000.0] * 5],
+            ["Credit outstanding"], ["Total credit oustanding", *[2000.0] * 5],
+            ["Loan performance - credit outstanding"],
+            ["Loans 30-89 days past due", 8.0, 9.0, 10.0, 10.5, 11.0],
+            ["Non-performing loans", 16.0, 17.0, 18.0, 19.0, 20.2]]
+    sheets = load_sheets(_book({"Cover ": [["x"]], "Tab 1b": rows}))
+    s, how = apra_npl_from_sheets(sheets)
+    assert s.iloc[-1] == pytest.approx(1.01) and "oustanding" in how
+    from src.agencies import apra_pastdue_from_sheets
+    p, _ = apra_pastdue_from_sheets(sheets)
+    assert p.iloc[-1] == pytest.approx(0.55)

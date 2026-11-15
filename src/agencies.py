@@ -61,6 +61,8 @@ def _prefer_total(matches: list[Match]) -> Match | None:
 
 # ---------------- APRA: housing loans non-performing, % of credit outstanding
 
+OUTSTANDING = r"out?standing"  # APRA's Tab 1b label is spelt "Total credit oustanding"
+
 def apra_npl_from_sheets(sheets: dict) -> tuple[pd.Series, str]:
     sheets = {k: v for k, v in sheets.items() if not SKIP_SHEETS.search(k)}
     ratio = [m for m in find_series(sheets, r"non[- ]?performing.*(%|share|per ?cent|proportion|ratio)|"
@@ -70,11 +72,11 @@ def apra_npl_from_sheets(sheets: dict) -> tuple[pd.Series, str]:
     if best is not None:
         return best.series, f"ratio row '{best.label}' in sheet '{best.sheet}' ({best.orientation})"
     nums = [m for m in find_series(sheets, r"^\s*non[- ]?performing") if "commercial" not in m.label.lower()]
-    dens = find_series(sheets, r"credit outstanding|outstanding|^\s*total (housing )?credit")
+    dens = find_series(sheets, OUTSTANDING + r"|^\s*total (housing )?credit")
     for num in sorted(nums, key=lambda m: -len(m.series)):
         same = [d for d in dens if d.sheet == num.sheet and d.orientation == num.orientation]
         # NPL share is defined on credit outstanding; limits (incl. redraw) only as a last resort
-        outstanding = [d for d in same if "outstanding" in d.label.lower() and "limit" not in d.label.lower()]
+        outstanding = [d for d in same if re.search(OUTSTANDING, d.label, re.I) and "limit" not in d.label.lower()]
         den = _prefer_total(outstanding or same)
         if den is None:
             continue
@@ -83,6 +85,23 @@ def apra_npl_from_sheets(sheets: dict) -> tuple[pd.Series, str]:
         if len(share) >= 3:
             return share, (f"'{num.label}' / '{den.label}' x100 in sheet '{num.sheet}' ({num.orientation})")
     raise LookupError("APRA: no non-performing housing loan series found")
+
+
+def apra_pastdue_from_sheets(sheets: dict) -> tuple[pd.Series, str]:
+    """Loans 30-89 days past due as % of total credit outstanding (early arrears)."""
+    sheets = {k: v for k, v in sheets.items() if not SKIP_SHEETS.search(k)}
+    nums = [m for m in find_series(sheets, r"30\s*(-|to|\u2013)\s*89 days past due") if "commercial" not in m.label.lower()]
+    for num in sorted(nums, key=lambda m: -len(m.series)):
+        dens = [d for d in find_series({num.sheet: sheets[num.sheet]}, OUTSTANDING)
+                if d.orientation == num.orientation and "limit" not in d.label.lower()]
+        den = _prefer_total(dens)
+        if den is None:
+            continue
+        share = (num.series / den.series * 100).dropna()
+        share = share[(share > 0) & (share < 10)]
+        if len(share) >= 3:
+            return share, f"'{num.label}' / '{den.label}' x100 in sheet '{num.sheet}' ({num.orientation})"
+    raise LookupError("APRA: no 30-89 days past due series found")
 
 
 def fetch_apra() -> tuple[dict[str, pd.Series], str]:
@@ -94,10 +113,18 @@ def fetch_apra() -> tuple[dict[str, pd.Series], str]:
         s, how = apra_npl_from_sheets(sheets)
         s.name = "apra_housing_npl"
         lines.append(f"apra_housing_npl: {how}; {len(s)} obs, latest {s.index[-1]:%Y-%m} = {s.iloc[-1]:.3f}")
+        out = {"apra_housing_npl": s}
+        try:
+            pd_s, pd_how = apra_pastdue_from_sheets(sheets)
+            pd_s.name = "apra_housing_pastdue"
+            out["apra_housing_pastdue"] = pd_s
+            lines.append(f"apra_housing_pastdue: {pd_how}; {len(pd_s)} obs, latest {pd_s.index[-1]:%Y-%m} = {pd_s.iloc[-1]:.3f}")
+        except LookupError as exc:
+            lines.append(f"apra_housing_pastdue FAILED: {exc}")
         sheet = re.search(r"in sheet '([^']+)'", how)
         if sheet and sheet.group(1) in sheets:
             lines += ["", describe({sheet.group(1): sheets[sheet.group(1)]}, r"perform|outstanding|limit|total|past due")]
-        return {"apra_housing_npl": s}, "\n".join(lines)
+        return out, "\n".join(lines)
     except LookupError as exc:
         lines += [f"FAILED: {exc}", "", describe(sheets, r"perform|past due|arrear|outstanding|total")]
         raise LookupError("\n".join(lines)) from exc
@@ -219,7 +246,7 @@ def fetch_asic() -> tuple[dict[str, pd.Series], str]:
 
 
 AGENCY_FETCHERS = {"APRA property exposures": fetch_apra, "ASIC insolvency Series 1": fetch_asic}
-AGENCY_KEYS = {"apra_housing_npl", "asic_insolvencies", "asic_insolvencies_12m"}
+AGENCY_KEYS = {"apra_housing_npl", "apra_housing_pastdue", "asic_insolvencies", "asic_insolvencies_12m"}
 
 
 def fetch_agencies() -> tuple[dict[str, pd.Series], dict[str, str], str]:

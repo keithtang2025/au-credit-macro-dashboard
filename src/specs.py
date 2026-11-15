@@ -68,6 +68,7 @@ SCORE_ITEMS: list[ScoreItem] = [
     ScoreItem("credit_business", "Business credit growth (y/y)", True, "Faster growth = faster leverage build-up"),
     ScoreItem("household_dti", "Household debt to income", True),
     ScoreItem("apra_housing_npl", "Housing loans non-performing (APRA)", True, "Share of ADI housing credit outstanding"),
+    ScoreItem("apra_housing_pastdue", "Housing loans 30-89 days past due (APRA)", True, "Early arrears, share of credit outstanding"),
     ScoreItem("asic_insolvencies_12m", "Company insolvencies, last 12 months (ASIC)", True,
               "Companies entering external administration, rolling 12-month total"),
 ]

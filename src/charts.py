@@ -123,13 +123,17 @@ def debt_to_income(s: pd.Series | None) -> go.Figure:
     return _base(fig)
 
 
-def housing_npl(s: pd.Series | None) -> go.Figure:
+def housing_npl(s: pd.Series | None, pastdue: pd.Series | None = None) -> go.Figure:
     if s is None or s.empty:
         return empty("Loads from APRA after the next daily refresh")
-    s = s[s.index >= s.index[-1] - pd.DateOffset(years=8)]
-    fig = go.Figure(go.Scatter(x=s.index, y=s.values, mode="lines+markers", line=dict(color=RED, width=2),
-                               marker=dict(size=4), name="Non-performing", hovertemplate="%{y:.2f}%<extra></extra>"))
-    _last_label(fig, s, RED)
+    fig = go.Figure()
+    for series, name, color in ((s, "Non-performing (90+ days or impaired)", RED), (pastdue, "30-89 days past due", ORANGE)):
+        if series is None or series.empty:
+            continue
+        series = series[series.index >= series.index[-1] - pd.DateOffset(years=8)]
+        fig.add_trace(go.Scatter(x=series.index, y=series.values, mode="lines+markers", line=dict(color=color, width=2),
+                                 marker=dict(size=4), name=name, hovertemplate="%{y:.2f}%"))
+        _last_label(fig, series, color)
     return _base(fig)
 
 

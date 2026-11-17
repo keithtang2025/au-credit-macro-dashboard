@@ -1414,3 +1414,5 @@ retrieved,series,period,value,change
 2026-11-16,apra_housing_npl,2025-12-31,0.9862945996425183,revised
 2026-11-16,apra_housing_npl,2026-03-31,0.9881375811821889,revised
 2026-11-16,apra_housing_npl,2026-06-30,1.011063955789828,revised
+2026-11-17,asic_insolvencies,2026-10-31,1090.0,new
+2026-11-17,asic_insolvencies_12m,2026-10-31,14450.0,new

@@ -31,6 +31,6 @@ apra_housing_pastdue: 'Loans 30-89 days past due' / 'Total credit oustanding' x1
 
 
 ## ASIC insolvency Series 1
-Workbook: https://download.asic.gov.au/media/xjxlfb4o/asic-insolvency-statistics-series-1-and-series-2-published-17-november-2026.xlsx
+Workbook: https://download.asic.gov.au/media/b0cbyqwv/asic-insolvency-statistics-series-1-and-series-2-published-23-november-2026.xlsx
 Sheets: Contents, 1, 1.1, C 1.1.1, C 1.1.2, 1.2, C 1.2, 1.3, C 1.3, 1.4.1, 1.4.2, 1.4.3, 2, 2.1, C 2.1.1, C 2.1.2, 2.2, C 2.2, 2.3, C 2.3, 2.4.1, 2.4.2, 2.4.3, Data set
-asic_insolvencies: Table 1 (sheet '1'): months x financial-year columns; partial month after data-to date 2026-11-01 dropped; 88 obs, latest 2026-10 = 1090
+asic_insolvencies: Table 1 (sheet '1'): months x financial-year columns; partial month after data-to date 2026-11-08 dropped; 88 obs, latest 2026-10 = 1091

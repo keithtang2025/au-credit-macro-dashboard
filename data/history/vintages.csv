@@ -1422,3 +1422,5 @@ retrieved,series,period,value,change
 2026-11-20,unemployment,2024-06-30,4.1,revised
 2026-11-20,unemployment,2026-06-30,4.5,revised
 2026-11-20,unemployment,2026-10-31,4.9,new
+2026-11-24,asic_insolvencies,2026-10-31,1091.0,revised
+2026-11-24,asic_insolvencies_12m,2026-10-31,14451.0,revised
